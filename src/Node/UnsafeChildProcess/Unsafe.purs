@@ -52,7 +52,7 @@ module Node.UnsafeChildProcess.Unsafe
 import Prelude
 
 import Data.Maybe (Maybe)
-import Data.Nullable (Nullable, toMaybe)
+import Data.Nullable (Nullable, toMaybe, toNullable)
 import Data.Posix (Gid, Pid, Uid)
 import Data.Time.Duration (Milliseconds)
 import Effect (Effect)
@@ -98,18 +98,18 @@ foreign import execSyncImpl :: EffectFn1 (String) (StringOrBuffer)
 -- | - `encoding` <string> The encoding used for all stdio inputs and outputs. Default: 'buffer'.
 -- | - `windowsHide` <boolean> Hide the subprocess console window that would normally be created on Windows systems. Default: false.
 type JsExecSyncOptions =
-  ( cwd :: String
-  , input :: Buffer
+  ( cwd :: Nullable String
+  , input :: Nullable Buffer
   , stdio :: Array StdIO
-  , env :: Object String
-  , shell :: String
-  , uid :: Uid
-  , gid :: Gid
-  , timeout :: Milliseconds
-  , killSignal :: KillSignal
-  , maxBuffer :: Number
+  , env :: Nullable (Object String)
+  , shell :: Nullable String
+  , uid :: Nullable Uid
+  , gid :: Nullable Gid
+  , timeout :: Nullable Milliseconds
+  , killSignal :: Nullable KillSignal
+  , maxBuffer :: Nullable Number
   , encoding :: String
-  , windowsHide :: Boolean
+  , windowsHide :: Nullable Boolean
   )
 
 execSync'
@@ -138,16 +138,16 @@ foreign import execImpl :: EffectFn1 (String) (UnsafeChildProcess)
 -- | - `windowsHide` <boolean> Hide the subprocess console window that would normally be created on Windows systems. Default: false.
 -- | - `shell` <boolean> | <string> If true, runs command inside of a shell. Uses '/bin/sh' on Unix, and process.env.ComSpec on Windows. A different shell can be specified as a string. See Shell requirements and Default Windows shell. Default: false (no shell).
 type JsExecOptions =
-  ( cwd :: String
-  , env :: Object String
+  ( cwd :: Nullable String
+  , env :: Nullable (Object String)
   , encoding :: String
-  , timeout :: Milliseconds
-  , maxBuffer :: Number
-  , killSignal :: KillSignal
-  , uid :: Uid
-  , gid :: Gid
-  , windowsHide :: Boolean
-  , shell :: Shell
+  , timeout :: Nullable Milliseconds
+  , maxBuffer :: Nullable Number
+  , killSignal :: Nullable KillSignal
+  , uid :: Nullable Uid
+  , gid :: Nullable Gid
+  , windowsHide :: Nullable Boolean
+  , shell :: Nullable Shell
   )
 
 execOpts
@@ -196,18 +196,18 @@ foreign import execFileSyncImpl :: EffectFn2 (String) (Array String) (StringOrBu
 -- | - `windowsHide` <boolean> Hide the subprocess console window that would normally be created on Windows systems. Default: false.
 -- | - `shell` <boolean> | <string> If true, runs command inside of a shell. Uses '/bin/sh' on Unix, and process.env.ComSpec on Windows. A different shell can be specified as a string. See Shell requirements and Default Windows shell. Default: false (no shell).
 type JsExecFileSyncOptions =
-  ( cwd :: String
-  , input :: Buffer
+  ( cwd :: Nullable String
+  , input :: Nullable Buffer
   , stdio :: Array StdIO
-  , env :: Object String
-  , uid :: Uid
-  , gid :: Gid
-  , timeout :: Milliseconds
-  , killSignal :: KillSignal
-  , maxBuffer :: Number
+  , env :: Nullable (Object String)
+  , uid :: Nullable Uid
+  , gid :: Nullable Gid
+  , timeout :: Nullable Milliseconds
+  , killSignal :: Nullable KillSignal
+  , maxBuffer :: Nullable Number
   , encoding :: String
-  , windowsHide :: Boolean
-  , shell :: Shell
+  , windowsHide :: Nullable Boolean
+  , shell :: Nullable Shell
   )
 
 execFileSync'
@@ -238,17 +238,17 @@ foreign import execFileImpl :: EffectFn2 (String) (Array String) (UnsafeChildPro
 -- | - `windowsVerbatimArguments` <boolean> No quoting or escaping of arguments is done on Windows. Ignored on Unix. Default: false.
 -- | - `shell` <boolean> | <string> If true, runs command inside of a shell. Uses '/bin/sh' on Unix, and process.env.ComSpec on Windows. A different shell can be specified as a string. See Shell requirements and Default Windows shell. Default: false (no shell).
 type JsExecFileOptions =
-  ( cwd :: String
-  , env :: Object String
+  ( cwd :: Nullable String
+  , env :: Nullable (Object String)
   , encoding :: String
-  , timeout :: Milliseconds
-  , maxBuffer :: Number
-  , killSignal :: KillSignal
-  , uid :: Uid
-  , gid :: Gid
-  , windowsHide :: Boolean
-  , windowsVerbatimArguments :: Boolean
-  , shell :: Shell
+  , timeout :: Nullable Milliseconds
+  , maxBuffer :: Nullable Number
+  , killSignal :: Nullable KillSignal
+  , uid :: Nullable Uid
+  , gid :: Nullable Gid
+  , windowsHide :: Nullable Boolean
+  , windowsVerbatimArguments :: Nullable Boolean
+  , shell :: Nullable Shell
   )
 
 execFileOpts
@@ -310,20 +310,20 @@ foreign import spawnSyncImpl :: EffectFn2 (String) (Array String) (JsSpawnSyncRe
 -- | - `windowsVerbatimArguments` <boolean> No quoting or escaping of arguments is done on Windows. Ignored on Unix. This is set to true automatically when shell is specified and is CMD. Default: false.
 -- | - `windowsHide` <boolean> Hide the subprocess console window that would normally be created on Windows systems. Default: false.
 type JsSpawnSyncOptions =
-  ( cwd :: String
-  , input :: Buffer
-  , argv0 :: String
+  ( cwd :: Nullable String
+  , input :: Nullable Buffer
+  , argv0 :: Nullable String
   , stdio :: Array StdIO
-  , env :: Object String
-  , uid :: Uid
-  , gid :: Gid
-  , timeout :: Milliseconds
-  , killSignal :: KillSignal
-  , maxBuffer :: Number
+  , env :: Nullable (Object String)
+  , uid :: Nullable Uid
+  , gid :: Nullable Gid
+  , timeout :: Nullable Milliseconds
+  , killSignal :: Nullable KillSignal
+  , maxBuffer :: Nullable Number
   , encoding :: String
-  , shell :: Shell
-  , windowsVerbatimArguments :: Boolean
-  , windowsHide :: Boolean
+  , shell :: Nullable Shell
+  , windowsVerbatimArguments :: Nullable Boolean
+  , windowsHide :: Nullable Boolean
   )
 
 spawnSync'
@@ -357,19 +357,19 @@ foreign import spawnImpl :: EffectFn2 (String) (Array String) (UnsafeChildProces
 -- | - `timeout` <number> In milliseconds the maximum amount of time the process is allowed to run. Default: undefined.
 -- | - `killSignal` <string> | <integer> The signal value to be used when the spawned process will be killed by timeout or abort signal. Default: 'SIGTERM'.
 type JsSpawnOptions =
-  ( cwd :: String
-  , env :: Object String
-  , argv0 :: String
+  ( cwd :: Nullable String
+  , env :: Nullable (Object String)
+  , argv0 :: Nullable String
   , stdio :: Array StdIO
-  , detached :: Boolean
-  , uid :: Uid
-  , gid :: Gid
-  , serialization :: String
-  , shell :: Shell
-  , windowsVerbatimArguments :: Boolean
-  , windowsHide :: Boolean
-  , timeout :: Milliseconds
-  , killSignal :: KillSignal
+  , detached :: Nullable Boolean
+  , uid :: Nullable Uid
+  , gid :: Nullable Gid
+  , serialization :: Nullable String
+  , shell :: Nullable Shell
+  , windowsVerbatimArguments :: Nullable Boolean
+  , windowsHide :: Nullable Boolean
+  , timeout :: Nullable Milliseconds
+  , killSignal :: Nullable KillSignal
   )
 
 spawn'
@@ -403,19 +403,19 @@ foreign import forkImpl :: EffectFn2 (String) (Array String) (UnsafeChildProcess
 -- | - `windowsVerbatimArguments` <boolean> No quoting or escaping of arguments is done on Windows. Ignored on Unix. Default: false.
 -- | - `timeout` <number> In milliseconds the maximum amount of time the process is allowed to run. Default: undefined.
 type JsForkOptions =
-  ( cwd :: String
-  , detached :: Boolean
-  , env :: Object String
-  , execPath :: String
-  , execArgv :: Array String
-  , gid :: Gid
-  , serialization :: String
-  , killSignal :: KillSignal
-  , silent :: Boolean
+  ( cwd :: Nullable String
+  , detached :: Nullable Boolean
+  , env :: Nullable (Object String)
+  , execPath :: Nullable String
+  , execArgv :: Nullable (Array String)
+  , gid :: Nullable Gid
+  , serialization :: Nullable String
+  , killSignal :: Nullable KillSignal
+  , silent :: Nullable Boolean
   , stdio :: Array StdIO
-  , uid :: Uid
-  , windowsVerbatimArguments :: Boolean
-  , timeout :: Milliseconds
+  , uid :: Nullable Uid
+  , windowsVerbatimArguments :: Nullable Boolean
+  , timeout :: Nullable Milliseconds
   )
 
 fork'
@@ -437,7 +437,7 @@ foreign import sendImpl :: forall messageRows. EffectFn3 (UnsafeChildProcess) ({
 
 -- | - `keepAlive` <boolean> A value that can be used when passing instances of `net.Socket` as the `Handle`. When true, the socket is kept open in the sending process. Default: false.
 type JsSendOptions =
-  ( keepAlive :: Boolean
+  ( keepAlive :: Nullable Boolean
   )
 
 -- | Unsafe because child process must be a Node child process and an IPC channel must exist.

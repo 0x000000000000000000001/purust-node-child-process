@@ -85,6 +85,10 @@ pub struct ChildState {
     pub error_delivered: bool,
     pub exit_delivered: bool,
     pub close_delivered: bool,
+    /// Microtask queue captured at spawn time, when one was installed. Events
+    /// discovered by the waiter thread are delivered through it so PureScript
+    /// callbacks always run in the runtime's context.
+    pub queue: Option<crate::UnknownType>,
 }
 
 impl ChildState {
@@ -111,6 +115,7 @@ impl ChildState {
             error_delivered: false,
             exit_delivered: false,
             close_delivered: false,
+            queue: None,
         }
     }
 }
@@ -136,6 +141,16 @@ pub fn purust_child_state(child: &Rc<EventEmitter>) -> ChildStateHandle {
         .expect("Node.ChildProcess: process without native state")
         .unwrap_class::<ChildStateHandle>()
         .clone()
+}
+
+/// Exit signals reach PureScript as `KillSignal` handles, not bare strings.
+pub fn purust_kill_signal_value(number: i32) -> crate::UnknownType {
+    let name = purust_signal_name(number);
+    crate::Value::Class(Rc::new(Rc::new(KillSignal::Name(name))))
+}
+
+pub fn purust_kill_signal_value_named(name: &str) -> crate::UnknownType {
+    crate::Value::Class(Rc::new(Rc::new(KillSignal::Name(name.to_owned()))))
 }
 
 fn class_nullable(value: Option<crate::UnknownType>) -> crate::UnknownType {
@@ -199,22 +214,30 @@ pub fn purust_child_flush(child: &Rc<EventEmitter>) {
         }
         let args = vec![
             class_nullable(code.map(crate::mk_int)),
-            class_nullable(signal.map(crate::Value::String)),
+            class_nullable(signal.map(|name| purust_kill_signal_value_named(&name))),
         ];
         purust_emitter_emit(child, "exit", args);
     }
-    // close
-    let pending_close = {
+    // close: like Node, `close` carries the same (code, signal) pair as `exit`.
+    let (pending_close, close_code, close_signal) = {
         let state = purust_child_state(child);
         let state = state.lock().unwrap();
-        state.closed && !state.close_delivered
+        (
+            state.closed && !state.close_delivered,
+            state.exit_code,
+            state.signal_code.clone(),
+        )
     };
     if pending_close && purust_emitter_listener_count(child, "close") > 0 {
         {
             let state = purust_child_state(child);
             state.lock().unwrap().close_delivered = true;
         }
-        purust_emitter_emit(child, "close", Vec::new());
+        let args = vec![
+            class_nullable(close_code.map(crate::mk_int)),
+            class_nullable(close_signal.map(|name| purust_kill_signal_value_named(&name))),
+        ];
+        purust_emitter_emit(child, "close", args);
     }
 }
 

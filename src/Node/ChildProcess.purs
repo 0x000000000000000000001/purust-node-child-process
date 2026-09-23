@@ -86,7 +86,7 @@ module Node.ChildProcess
 
 import Prelude
 
-import Data.Maybe (Maybe(..), fromMaybe, isJust)
+import Data.Maybe (Maybe(..), fromJust, fromMaybe, isJust)
 import Data.Nullable (Nullable, toMaybe, toNullable)
 import Data.Posix (Pid, Gid, Uid)
 import Data.Posix.Signal (Signal)
@@ -105,7 +105,7 @@ import Node.Stream (Readable, Writable)
 import Node.UnsafeChildProcess.Safe as SafeCP
 import Node.UnsafeChildProcess.Unsafe (unsafeSOBToBuffer)
 import Node.UnsafeChildProcess.Unsafe as UnsafeCP
-import Partial.Unsafe (unsafeCrashWith)
+import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 import Safe.Coerce (coerce)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -139,20 +139,17 @@ messageH = unsafeCoerce SafeCP.messageH
 spawnH :: EventHandle0 ChildProcess
 spawnH = unsafeCoerce SafeCP.spawnH
 
-unsafeFromNull :: forall a. Nullable a -> a
-unsafeFromNull = unsafeCoerce
-
 -- | The standard input stream of a child process.
 stdin :: ChildProcess -> Writable ()
-stdin = toUnsafeChildProcess >>> UnsafeCP.unsafeStdin >>> unsafeFromNull
+stdin cp = unsafePartial $ fromJust $ toMaybe $ UnsafeCP.unsafeStdin $ toUnsafeChildProcess cp
 
 -- | The standard output stream of a child process.
 stdout :: ChildProcess -> Readable ()
-stdout = toUnsafeChildProcess >>> UnsafeCP.unsafeStdout >>> unsafeFromNull
+stdout cp = unsafePartial $ fromJust $ toMaybe $ UnsafeCP.unsafeStdout $ toUnsafeChildProcess cp
 
 -- | The standard error stream of a child process.
 stderr :: ChildProcess -> Readable ()
-stderr = toUnsafeChildProcess >>> UnsafeCP.unsafeStderr >>> unsafeFromNull
+stderr cp = unsafePartial $ fromJust $ toMaybe $ UnsafeCP.unsafeStderr $ toUnsafeChildProcess cp
 
 -- | The process ID of a child process. This will be `Nothing` until
 -- | the process has spawned. Note that if the process has already
@@ -297,18 +294,18 @@ spawnSync' command args buildOpts = (UnsafeCP.spawnSync' command args opts) <#> 
   opts =
     { stdio: [ pipe, pipe, pipe ] <> fromMaybe [] o.appendStdio
     , encoding: "buffer"
-    , cwd: fromMaybe undefined o.cwd
-    , input: fromMaybe undefined o.input
-    , argv0: fromMaybe undefined o.argv0
-    , env: fromMaybe undefined o.env
-    , uid: fromMaybe undefined o.uid
-    , gid: fromMaybe undefined o.gid
-    , timeout: fromMaybe undefined o.timeout
-    , killSignal: fromMaybe undefined o.killSignal
-    , maxBuffer: fromMaybe undefined o.maxBuffer
-    , shell: fromMaybe undefined o.shell
-    , windowsVerbatimArguments: fromMaybe undefined o.windowsVerbatimArguments
-    , windowsHide: fromMaybe undefined o.windowsHide
+    , cwd: toNullable o.cwd
+    , input: toNullable o.input
+    , argv0: toNullable o.argv0
+    , env: toNullable o.env
+    , uid: toNullable o.uid
+    , gid: toNullable o.gid
+    , timeout: toNullable o.timeout
+    , killSignal: toNullable o.killSignal
+    , maxBuffer: toNullable o.maxBuffer
+    , shell: toNullable o.shell
+    , windowsVerbatimArguments: toNullable o.windowsVerbatimArguments
+    , windowsHide: toNullable o.windowsHide
     }
 
   o = buildOpts
@@ -375,18 +372,18 @@ spawn' cmd args buildOpts = coerce $ UnsafeCP.spawn' cmd args opts
   where
   opts =
     { stdio: [ pipe, pipe, pipe, ipc ] <> fromMaybe [] o.appendStdio
-    , cwd: fromMaybe undefined o.cwd
-    , env: fromMaybe undefined o.env
-    , argv0: fromMaybe undefined o.argv0
-    , detached: fromMaybe undefined o.detached
-    , uid: fromMaybe undefined o.uid
-    , gid: fromMaybe undefined o.gid
-    , serialization: fromMaybe undefined o.serialization
-    , shell: fromMaybe undefined o.shell
-    , windowsVerbatimArguments: fromMaybe undefined o.windowsVerbatimArguments
-    , windowsHide: fromMaybe undefined o.windowsHide
-    , timeout: fromMaybe undefined o.timeout
-    , killSignal: fromMaybe undefined o.killSignal
+    , cwd: toNullable o.cwd
+    , env: toNullable o.env
+    , argv0: toNullable o.argv0
+    , detached: toNullable o.detached
+    , uid: toNullable o.uid
+    , gid: toNullable o.gid
+    , serialization: toNullable o.serialization
+    , shell: toNullable o.shell
+    , windowsVerbatimArguments: toNullable o.windowsVerbatimArguments
+    , windowsHide: toNullable o.windowsHide
+    , timeout: toNullable o.timeout
+    , killSignal: toNullable o.killSignal
     }
   o = buildOpts
     { cwd: Nothing
@@ -461,16 +458,16 @@ execSync' cmd buildOpts = do
   opts =
     { stdio: [ pipe, pipe, pipe ] <> fromMaybe [] o.appendStdio
     , encoding: "buffer"
-    , cwd: fromMaybe undefined o.cwd
-    , input: fromMaybe undefined o.input
-    , env: fromMaybe undefined o.env
-    , shell: fromMaybe undefined o.shell
-    , uid: fromMaybe undefined o.uid
-    , gid: fromMaybe undefined o.gid
-    , timeout: fromMaybe undefined o.timeout
-    , killSignal: fromMaybe undefined o.killSignal
-    , maxBuffer: fromMaybe undefined o.maxBuffer
-    , windowsHide: fromMaybe undefined o.windowsHide
+    , cwd: toNullable o.cwd
+    , input: toNullable o.input
+    , env: toNullable o.env
+    , shell: toNullable o.shell
+    , uid: toNullable o.uid
+    , gid: toNullable o.gid
+    , timeout: toNullable o.timeout
+    , killSignal: toNullable o.killSignal
+    , maxBuffer: toNullable o.maxBuffer
+    , windowsHide: toNullable o.windowsHide
     }
 
 -- | Similar to `spawn`, except that this variant will:
@@ -527,15 +524,15 @@ exec' command buildOpts cb = coerce $ UnsafeCP.execOptsCb command opts \err sout
   where
   opts =
     { encoding: "buffer"
-    , cwd: fromMaybe undefined o.cwd
-    , env: fromMaybe undefined o.env
-    , timeout: fromMaybe undefined o.timeout
-    , maxBuffer: fromMaybe undefined o.maxBuffer
-    , killSignal: fromMaybe undefined o.killSignal
-    , uid: fromMaybe undefined o.uid
-    , gid: fromMaybe undefined o.gid
-    , windowsHide: fromMaybe undefined o.windowsHide
-    , shell: fromMaybe undefined o.shell
+    , cwd: toNullable o.cwd
+    , env: toNullable o.env
+    , timeout: toNullable o.timeout
+    , maxBuffer: toNullable o.maxBuffer
+    , killSignal: toNullable o.killSignal
+    , uid: toNullable o.uid
+    , gid: toNullable o.gid
+    , windowsHide: toNullable o.windowsHide
+    , shell: toNullable o.shell
     }
   o = buildOpts
     { cwd: Nothing
@@ -594,16 +591,16 @@ execFileSync' file args buildOpts =
   opts =
     { stdio: [ pipe, pipe, pipe ] <> fromMaybe [] o.appendStdio
     , encoding: "buffer"
-    , cwd: fromMaybe undefined o.cwd
-    , input: fromMaybe undefined o.input
-    , env: fromMaybe undefined o.env
-    , uid: fromMaybe undefined o.uid
-    , gid: fromMaybe undefined o.gid
-    , timeout: fromMaybe undefined o.timeout
-    , killSignal: fromMaybe undefined o.killSignal
-    , maxBuffer: fromMaybe undefined o.maxBuffer
-    , windowsHide: fromMaybe undefined o.windowsHide
-    , shell: fromMaybe undefined o.shell
+    , cwd: toNullable o.cwd
+    , input: toNullable o.input
+    , env: toNullable o.env
+    , uid: toNullable o.uid
+    , gid: toNullable o.gid
+    , timeout: toNullable o.timeout
+    , killSignal: toNullable o.killSignal
+    , maxBuffer: toNullable o.maxBuffer
+    , windowsHide: toNullable o.windowsHide
+    , shell: toNullable o.shell
     }
   o = buildOpts
     { cwd: Nothing
@@ -660,17 +657,17 @@ execFile' cmd args buildOpts cb = coerce $ UnsafeCP.execFileOptsCb cmd args opts
   cb { stdout: unsafeSOBToBuffer sout, stderr: unsafeSOBToBuffer serr, error: err }
   where
   opts =
-    { cwd: fromMaybe undefined o.cwd
-    , env: fromMaybe undefined o.env
+    { cwd: toNullable o.cwd
+    , env: toNullable o.env
     , encoding: "buffer"
-    , timeout: fromMaybe undefined o.timeout
-    , maxBuffer: fromMaybe undefined o.maxBuffer
-    , killSignal: fromMaybe undefined o.killSignal
-    , uid: fromMaybe undefined o.uid
-    , gid: fromMaybe undefined o.gid
-    , windowsHide: fromMaybe undefined o.windowsHide
-    , windowsVerbatimArguments: fromMaybe undefined o.windowsVerbatimArguments
-    , shell: fromMaybe undefined o.shell
+    , timeout: toNullable o.timeout
+    , maxBuffer: toNullable o.maxBuffer
+    , killSignal: toNullable o.killSignal
+    , uid: toNullable o.uid
+    , gid: toNullable o.gid
+    , windowsHide: toNullable o.windowsHide
+    , windowsVerbatimArguments: toNullable o.windowsVerbatimArguments
+    , shell: toNullable o.shell
     }
   o = buildOpts
     { cwd: Nothing
@@ -732,18 +729,18 @@ fork' modulePath args buildOpts = coerce $ UnsafeCP.fork' modulePath args opts
   where
   opts =
     { stdio: [ pipe, pipe, pipe, ipc ] <> fromMaybe [] o.appendStdio
-    , cwd: fromMaybe undefined o.cwd
-    , detached: fromMaybe undefined o.detached
-    , env: fromMaybe undefined o.env
-    , execPath: fromMaybe undefined o.execPath
-    , execArgv: fromMaybe undefined o.execArgv
-    , gid: fromMaybe undefined o.gid
-    , serialization: fromMaybe undefined o.serialization
-    , killSignal: fromMaybe undefined o.killSignal
-    , silent: fromMaybe undefined o.silent
-    , uid: fromMaybe undefined o.uid
-    , windowsVerbatimArguments: fromMaybe undefined o.windowsVerbatimArguments
-    , timeout: fromMaybe undefined o.timeout
+    , cwd: toNullable o.cwd
+    , detached: toNullable o.detached
+    , env: toNullable o.env
+    , execPath: toNullable o.execPath
+    , execArgv: toNullable o.execArgv
+    , gid: toNullable o.gid
+    , serialization: toNullable o.serialization
+    , killSignal: toNullable o.killSignal
+    , silent: toNullable o.silent
+    , uid: toNullable o.uid
+    , windowsVerbatimArguments: toNullable o.windowsVerbatimArguments
+    , timeout: toNullable o.timeout
     }
   o = buildOpts
     { cwd: Nothing
@@ -790,7 +787,7 @@ send' msg handle buildOpts cb cp =
   UnsafeCP.unsafeSendOptsCb msg (toNullable handle) opts cb (coerce cp)
   where
   opts =
-    { keepAlive: fromMaybe undefined o.keepAlive }
+    { keepAlive: toNullable o.keepAlive }
   o = buildOpts
     { keepAlive: Nothing
     }

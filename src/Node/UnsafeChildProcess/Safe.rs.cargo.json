@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "dependencies": {
+    "libc": { "version": "=0.2.189" }
+  }
+}

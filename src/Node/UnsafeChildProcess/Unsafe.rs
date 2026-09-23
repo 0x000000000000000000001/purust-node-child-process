@@ -15,11 +15,40 @@ use Purs_Node_ChildProcess_Types::{
 use Purs_Node_Errors_SystemError::{purust_system_error_from_io, purust_system_error_value};
 use Purs_Node_EventEmitter::EventEmitter;
 
+/// The microtask queue of the calling context, when one is installed.
+fn current_queue() -> Option<Rc<purust_core::microtasks::Queue>> {
+    std::panic::catch_unwind(purust_core::microtasks::current).ok()
+}
+
+fn current_queue_value() -> Option<crate::UnknownType> {
+    current_queue().map(|queue| crate::Value::Class(Rc::new(queue)))
+}
+
+fn deliver(queue: &Option<crate::UnknownType>, job: impl FnOnce() + Send + Sync + 'static) {
+    match queue {
+        Some(queue) => {
+            let queue = queue
+                .unwrap_class::<Rc<purust_core::microtasks::Queue>>()
+                .clone();
+            queue.enqueue(job);
+        }
+        None => job(),
+    }
+}
+
 fn options_field(options: &crate::UnknownType, key: &str) -> Option<crate::UnknownType> {
+    // The no-options variants pass `Unit` (there is no option record at all).
+    if matches!(options.resolve(), crate::Value::Unit) {
+        return None;
+    }
     let value = options.__purust_foreign_object().get(key)?;
     match value.resolve() {
-        // `undefined` marks an absent option.
+        // Absent options are `Nullable null`; `Unit` shows up for `undefined`.
         crate::Value::Unit => None,
+        crate::Value::Class(payload) => match payload.downcast_ref::<Rc<Purs_Data_Nullable::Nullable>>() {
+            Some(nullable) => nullable.value(),
+            None => Some(value),
+        },
         _ => Some(value),
     }
 }
@@ -59,9 +88,9 @@ fn string_or_buffer_handle(value: StringOrBuffer) -> crate::UnknownType {
 
 fn result_value(bytes: Vec<u8>, encoding: Option<&String>) -> crate::UnknownType {
     match encoding.map(|encoding| encoding.as_str()) {
-        None | Some("buffer") => string_or_buffer_handle(StringOrBuffer::Buffer(Rc::new(
+        None | Some("buffer") => string_or_buffer_handle(StringOrBuffer::Buffer(
             Purs_Node_Buffer_Immutable::purust_buffer_from_bytes(bytes),
-        ))),
+        )),
         Some(encoding) => {
             let name = Purs_Node_Encoding::purust_encoding_from_name(encoding);
             string_or_buffer_handle(StringOrBuffer::Str(
@@ -229,7 +258,7 @@ fn finish_child(child: &Rc<EventEmitter>, status: std::io::Result<std::process::
         let state = purust_child_state(child);
         let mut state = state.lock().unwrap();
         if let Ok(status) = status {
-            state.exit_code = status.code();
+            state.exit_code = status.code().map(|code| code as i64);
             state.signal_code = status
                 .signal()
                 .map(purust_signal_name)
@@ -241,18 +270,29 @@ fn finish_child(child: &Rc<EventEmitter>, status: std::io::Result<std::process::
     purust_child_flush(child);
 }
 
-fn start_drain(stream: Rc<EventEmitter>, mut reader: Box<dyn Read + Send>) -> std::thread::JoinHandle<()> {
+fn start_drain(
+    stream: Rc<EventEmitter>,
+    mut reader: Box<dyn Read + Send>,
+    queue: Option<crate::UnknownType>,
+) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let mut buffer = [0u8; 8192];
         loop {
             match reader.read(&mut buffer) {
                 Ok(0) | Err(_) => break,
                 Ok(count) => {
-                    Purs_Node_Stream::purust_stream_push(&stream, buffer[..count].to_vec())
+                    let bytes = buffer[..count].to_vec();
+                    let pushed = stream.clone();
+                    deliver(&queue, move || {
+                        Purs_Node_Stream::purust_stream_push(&pushed, bytes);
+                    });
                 }
             }
         }
-        Purs_Node_Stream::purust_stream_end(&stream);
+        let ended = stream.clone();
+        deliver(&queue, move || {
+            Purs_Node_Stream::purust_stream_end(&ended);
+        });
     })
 }
 
@@ -265,6 +305,7 @@ struct Spawned {
 }
 
 fn spawn_child(file: &str, args: &[String], options: &crate::UnknownType) -> Spawned {
+    let queue = current_queue_value();
     let plans = stdio_plans(options);
     let (mut command, _shell) = build_command(file, args, options);
     command.stdin(stdio_of(plans[0]));
@@ -275,6 +316,7 @@ fn spawn_child(file: &str, args: &[String], options: &crate::UnknownType) -> Spa
             let mut state = ChildState::new(file.to_owned(), args.to_vec());
             state.pid = process.id() as i64;
             state.spawn_emitted = true;
+            state.queue = current_queue_value();
             state.stdio = plans
                 .iter()
                 .map(|plan| {
@@ -305,7 +347,7 @@ fn spawn_child(file: &str, args: &[String], options: &crate::UnknownType) -> Spa
             let mut stdout_stream = None;
             if let Some(stdout) = process.stdout.take() {
                 let stream = Purs_Node_Stream::purust_readable_from_bytes(Vec::new());
-                drains.push(start_drain(stream.clone(), Box::new(stdout)));
+                drains.push(start_drain(stream.clone(), Box::new(stdout), queue.clone()));
                 {
                     let state = purust_child_state(&child);
                     state.lock().unwrap().stdout = Some(stream.clone());
@@ -315,7 +357,7 @@ fn spawn_child(file: &str, args: &[String], options: &crate::UnknownType) -> Spa
             let mut stderr_stream = None;
             if let Some(stderr) = process.stderr.take() {
                 let stream = Purs_Node_Stream::purust_readable_from_bytes(Vec::new());
-                drains.push(start_drain(stream.clone(), Box::new(stderr)));
+                drains.push(start_drain(stream.clone(), Box::new(stderr), queue.clone()));
                 {
                     let state = purust_child_state(&child);
                     state.lock().unwrap().stderr = Some(stream.clone());
@@ -324,9 +366,12 @@ fn spawn_child(file: &str, args: &[String], options: &crate::UnknownType) -> Spa
             }
 
             let waiter_child = child.clone();
+            let waiter_queue = current_queue_value();
             let waiter = std::thread::spawn(move || {
                 let status = process.wait();
-                finish_child(&waiter_child, status);
+                deliver(&waiter_queue, move || {
+                    finish_child(&waiter_child, status);
+                });
             });
 
             // Timeout handling mirrors Node: kill with `killSignal` after the
@@ -443,6 +488,16 @@ fn raise_io(error: &std::io::Error, file: &str) -> ! {
     ))
 }
 
+
+/// Nullable handles cross as class-boxed native values.
+fn nullable_handle(value: Option<crate::UnknownType>) -> crate::UnknownType {
+    let nullable = match value {
+        Some(value) => Purs_Data_Nullable::Data_Nullable_notNull(value),
+        None => Purs_Data_Nullable::Data_Nullable_null(),
+    };
+    crate::Value::Class(Rc::new(nullable))
+}
+
 pub fn Node_UnsafeChildProcess_Unsafe_unsafeStdin(
     child: Rc<crate::UnsafeChildProcess>,
 ) -> Rc<Purs_Data_Nullable::Nullable> {
@@ -489,11 +544,12 @@ fn exec_sync_value(command: &str, options: &crate::UnknownType) -> crate::Unknow
     }
 }
 
-pub fn Node_UnsafeChildProcess_Unsafe_execSync() -> crate::UnknownType {
+pub fn Node_UnsafeChildProcess_Unsafe_execSyncImpl() -> crate::UnknownType {
     crate::Value::Func1(purust_core::Func1::Shared(Rc::new(|command| {
         let command = command.unwrap_string();
         exec_sync_value(&command, &crate::Value::Unit)
     })))
+}
 
 pub fn Node_UnsafeChildProcess_Unsafe_execSyncOptsImpl() -> crate::UnknownType {
     crate::Value::Func2(purust_core::Func2::Shared(Rc::new(|command, options| {
@@ -561,7 +617,7 @@ fn spawn_sync_value(file: &str, args: &[String], options: &crate::UnknownType) -
         Ok((output, pid)) => {
             let stdout = result_value(output.stdout, encoding.as_ref());
             let stderr = result_value(output.stderr, encoding.as_ref());
-            let status = output.status.code();
+            let status = output.status.code().map(|code| code as i64);
             let signal = {
                 use std::os::unix::process::ExitStatusExt;
                 output.status.signal().map(purust_signal_name)
@@ -633,6 +689,11 @@ pub fn Node_UnsafeChildProcess_Unsafe_spawnSyncOptsImpl() -> crate::UnknownType 
 // ---------------------------------------------------------------------------
 
 fn start_exec_thread(spawned: Spawned, callback: crate::UnknownType, encoding: Option<String>, nullable_error: bool) {
+    let queue = {
+        let state = purust_child_state(&spawned.child);
+        let queue = state.lock().unwrap().queue.clone();
+        queue
+    };
     std::thread::spawn(move || {
         for drain in spawned.drains {
             let _ = drain.join();
@@ -656,11 +717,9 @@ fn start_exec_thread(spawned: Spawned, callback: crate::UnknownType, encoding: O
         } else {
             class_nullable(error)
         };
-        callback.unwrap_func3()(
-            error_value,
-            stdout,
-            stderr,
-        );
+        deliver(&queue, move || {
+            callback.unwrap_func3()(error_value, stdout, stderr);
+        });
     });
 }
 
@@ -778,10 +837,8 @@ pub fn Node_UnsafeChildProcess_Unsafe_unsafeSOBToBuffer(
     value: Rc<StringOrBuffer>,
 ) -> Rc<Purs_Node_Buffer_Immutable::ImmutableBuffer> {
     match value.as_ref() {
-        StringOrBuffer::Str(text) => Rc::new(
-            Purs_Node_Buffer_Immutable::purust_buffer_from_bytes(
-                purust_core::purust_string_to_utf8_lossy(text).into_bytes(),
-            ),
+        StringOrBuffer::Str(text) => Purs_Node_Buffer_Immutable::purust_buffer_from_bytes(
+            purust_core::purust_string_to_utf8_lossy(text).into_bytes(),
         ),
         StringOrBuffer::Buffer(buffer) => buffer.clone(),
     }
