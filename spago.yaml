@@ -1,0 +1,135 @@
+package:
+  name: node-child-process
+  dependencies:
+    - aff
+    - arrays
+    - datetime
+    - effect
+    - either
+    - exceptions
+    - foreign
+    - foreign-object
+    - functions
+    - maybe
+    - node-buffer
+    - node-event-emitter
+    - node-fs
+    - node-os
+    - node-streams
+    - nullable
+    - parallel
+    - partial
+    - posix-types
+    - prelude
+    - refs
+    - safe-coerce
+    - strings
+    - unsafe-coerce
+
+  test:
+    main: Test.Main
+    dependencies:
+      - aff
+      - console
+      - effect
+      - either
+      - exceptions
+      - maybe
+      - node-buffer
+      - node-event-emitter
+      - node-streams
+      - posix-types
+      - prelude
+      - unsafe-coerce
+
+workspace:
+  backend:
+    cmd: ../purust/bin/purust
+    args: [--main, Test.Main, --source, output, --out, output/purust_output, --threaded]
+  packageSet:
+    registry: 77.7.0
+  extraPackages:
+    aff:
+      path: "../purust-aff"
+    arrays:
+      path: "../purust-arrays"
+    arraybuffer-types:
+      path: "../purust-arraybuffer-types"
+    assert:
+      path: "../purust-assert"
+    avar:
+      path: "../purust-avar"
+    catenable-lists:
+      path: "../purust-catenable-lists"
+    console:
+      path: "../purust-console"
+    datetime:
+      path: "../purust-datetime"
+    effect:
+      path: "../purust-effect"
+    enums:
+      path: "../purust-enums"
+    exceptions:
+      path: "../purust-exceptions"
+    foldable-traversable:
+      path: "../purust-foldable-traversable"
+    foreign:
+      path: "../purust-foreign"
+    foreign-object:
+      path: "../purust-foreign-object"
+    functions:
+      path: "../purust-functions"
+    integers:
+      path: "../purust-integers"
+    js-date:
+      path: "../purust-js-date"
+    js-promise:
+      path: "../purust-js-promise"
+    js-promise-aff:
+      path: "../purust-js-promise-aff"
+    js-uri:
+      path: "../purust-js-uri"
+    lazy:
+      path: "../purust-lazy"
+    node-buffer:
+      path: "../purust-node-buffer"
+    node-event-emitter:
+      path: "../purust-node-event-emitter"
+    node-os:
+      path: "../purust-node-os"
+    node-fs:
+      path: "../purust-node-fs"
+    node-path:
+      path: "../purust-node-path"
+    node-streams:
+      path: "../purust-node-streams"
+    now:
+      path: "../purust-now"
+    nullable:
+      path: "../purust-nullable"
+    numbers:
+      path: "../purust-numbers"
+    partial:
+      path: "../purust-partial"
+    prelude:
+      path: "../purust-prelude"
+    random:
+      path: "../purust-random"
+    record:
+      path: "../purust-record"
+    refs:
+      path: "../purust-refs"
+    run:
+      path: "../purust-run"
+    st:
+      path: "../purust-st"
+    strings:
+      path: "../purust-strings"
+    unfoldable:
+      path: "../purust-unfoldable"
+    unsafe-coerce:
+      path: "../purust-unsafe-coerce"
+    uuid:
+      path: "../purust-uuid"
+    variant:
+      path: "../purust-variant"

@@ -27,10 +27,8 @@ import Prelude
 
 import Data.Either (Either(..), either)
 import Data.Function.Uncurried (Fn3, runFn3)
-import Data.Nullable (Nullable, null)
 import Node.FS (FileDescriptor)
 import Node.Stream (Stream)
-import Unsafe.Coerce (unsafeCoerce)
 
 -- | A child process with no guarantees about whether or not
 -- | properties or methods (e.g. `stdin`, `send`) that depend on
@@ -55,17 +53,13 @@ foreign import data StdIO :: Type
 -- | until the parent process calls `Stream.end` on the child process'
 -- | `stdin` stream. Since it's impossible to know when the user
 -- | inputs `Ctrl+D`, `inherit` should be used instead.
-pipe :: StdIO
-pipe = unsafeCoerce "pipe"
+foreign import pipe :: StdIO
 
-ignore :: StdIO
-ignore = unsafeCoerce "ignore"
+foreign import ignore :: StdIO
 
-overlapped :: StdIO
-overlapped = unsafeCoerce "overlapped"
+foreign import overlapped :: StdIO
 
-ipc :: StdIO
-ipc = unsafeCoerce "ipc"
+foreign import ipc :: StdIO
 
 -- | Uses the parent's corresponding stream.
 -- |
@@ -76,20 +70,15 @@ ipc = unsafeCoerce "ipc"
 -- | will cause the child process to hang, even when `Ctrl+D` is pressed,
 -- | until the parent process calls `Stream.end`, which cannot be reliably
 -- | called the moment AFTER `Ctrl+D` is pressed.
-inherit :: StdIO
-inherit = unsafeCoerce "inherit"
+foreign import inherit :: StdIO
 
-shareStream :: forall r. Stream r -> StdIO
-shareStream = unsafeCoerce
+foreign import shareStream :: forall r. Stream r -> StdIO
 
-fileDescriptor :: Int -> StdIO
-fileDescriptor = unsafeCoerce
+foreign import fileDescriptor :: Int -> StdIO
 
-fileDescriptor' :: FileDescriptor -> StdIO
-fileDescriptor' = unsafeCoerce
+foreign import fileDescriptor' :: FileDescriptor -> StdIO
 
-defaultStdIO :: StdIO
-defaultStdIO = unsafeCoerce (null :: Nullable String)
+foreign import defaultStdIO :: StdIO
 
 foreign import data KillSignal :: Type
 
@@ -109,11 +98,9 @@ instance Show KillSignal where
 
 foreign import showKillSignal :: KillSignal -> String
 
-intSignal :: Int -> KillSignal
-intSignal = unsafeCoerce
+foreign import intSignal :: Int -> KillSignal
 
-stringSignal :: String -> KillSignal
-stringSignal = unsafeCoerce
+foreign import stringSignal :: String -> KillSignal
 
 fromKillSignal :: KillSignal -> Either Int String
 fromKillSignal sig = fromKillSignal' Left Right sig
@@ -130,11 +117,9 @@ instance Show Shell where
 
 foreign import showShell :: Shell -> String
 
-enableShell :: Shell
-enableShell = unsafeCoerce true
+foreign import enableShell :: Shell
 
-customShell :: String -> Shell
-customShell = unsafeCoerce
+foreign import customShell :: String -> Shell
 
 -- | Indicates value is either a String or a Buffer depending on
 -- | what options were used.

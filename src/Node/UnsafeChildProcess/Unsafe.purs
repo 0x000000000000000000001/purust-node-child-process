@@ -67,15 +67,11 @@ import Node.Stream (Readable, Writable)
 import Prim.Row as Row
 import Unsafe.Coerce (unsafeCoerce)
 
--- | Same as `unsafeCoerce`. No runtime checking is done to ensure
--- | the value is a `String`.
-unsafeSOBToString :: StringOrBuffer -> String
-unsafeSOBToString = unsafeCoerce
+-- | No runtime checking is done to ensure the value is a `String`.
+foreign import unsafeSOBToString :: StringOrBuffer -> String
 
--- | Same as `unsafeCoerce`. No runtime checking is done to ensure
--- | the value is a `Buffer`.
-unsafeSOBToBuffer :: StringOrBuffer -> Buffer
-unsafeSOBToBuffer = unsafeCoerce
+-- | No runtime checking is done to ensure the value is a `Buffer`.
+foreign import unsafeSOBToBuffer :: StringOrBuffer -> Buffer
 
 -- | Unsafe because it depends on what value was passed in via `stdio[0]`
 foreign import unsafeStdin :: UnsafeChildProcess -> Nullable (Writable ())
