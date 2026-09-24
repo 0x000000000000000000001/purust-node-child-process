@@ -369,6 +369,19 @@ fn spawn_child(file: &str, args: &[String], options: &crate::UnknownType) -> Spa
             let waiter_queue = current_queue_value();
             let waiter = std::thread::spawn(move || {
                 let status = process.wait();
+                // Record the status synchronously: `exec` reads it once the
+                // pipes close, which can happen before the queued
+                // `finish_child` job runs.
+                if let Ok(ref status) = status {
+                    use std::os::unix::process::ExitStatusExt;
+                    let state = purust_child_state(&waiter_child);
+                    let mut state = state.lock().unwrap();
+                    state.exit_code = status.code().map(|code| code as i64);
+                    state.signal_code = status
+                        .signal()
+                        .map(purust_signal_name)
+                        .filter(|name| !name.is_empty());
+                }
                 deliver(&waiter_queue, move || {
                     finish_child(&waiter_child, status);
                 });
@@ -705,9 +718,59 @@ fn start_exec_thread(spawned: Spawned, callback: crate::UnknownType, encoding: O
         let stderr = result_value(stderr, encoding.as_ref());
         let error = {
             let state = purust_child_state(&spawned.child);
+            // The pipes reach EOF when the child exits; the waiter records the
+            // status right after `wait`, so a short bounded wait covers the gap
+            // before the queued `finish_child` job runs.
+            let mut waited = 0u32;
+            loop {
+                {
+                    let state = state.lock().unwrap();
+                    if state.spawn_failed
+                        || state.exit_code.is_some()
+                        || state.signal_code.is_some()
+                    {
+                        break;
+                    }
+                }
+                if waited >= 2000 {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                waited += 1;
+            }
             let state = state.lock().unwrap();
             if state.spawn_failed {
                 state.error.clone()
+            } else if let Some(code) = state.exit_code.filter(|code| *code != 0) {
+                // Node reports non-zero exits as an error with the exit code,
+                // which is what `execFile'` callers check.
+                let command = if state.spawn_args.is_empty() {
+                    state.spawn_file.clone()
+                } else {
+                    format!("{} {}", state.spawn_file, state.spawn_args.join(" "))
+                };
+                Some(Purs_Node_Errors_SystemError::purust_system_error_value(
+                    Purs_Node_Errors_SystemError::SystemErrorFields {
+                        code: code.to_string(),
+                        syscall: "spawn".to_owned(),
+                        message: format!("Command failed: {command}"),
+                        ..Default::default()
+                    },
+                ))
+            } else if let Some(signal) = state.signal_code.clone() {
+                let command = if state.spawn_args.is_empty() {
+                    state.spawn_file.clone()
+                } else {
+                    format!("{} {}", state.spawn_file, state.spawn_args.join(" "))
+                };
+                Some(Purs_Node_Errors_SystemError::purust_system_error_value(
+                    Purs_Node_Errors_SystemError::SystemErrorFields {
+                        code: "ERR_CHILD_PROCESS".to_owned(),
+                        syscall: "spawn".to_owned(),
+                        message: format!("Command failed: {command} (killed by {signal})"),
+                        ..Default::default()
+                    },
+                ))
             } else {
                 None
             }
