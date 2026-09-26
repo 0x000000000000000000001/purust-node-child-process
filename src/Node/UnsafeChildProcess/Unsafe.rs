@@ -138,7 +138,7 @@ fn plan_for(value: &crate::UnknownType) -> StdioPlan {
 fn stdio_plans(options: &crate::UnknownType) -> [StdioPlan; 3] {
     let mut plans = [StdioPlan::Pipe; 3];
     if let Some(stdio) = options_field(options, "stdio") {
-        if let crate::Value::Array(entries) = stdio.resolve() {
+        if let Some(entries) = stdio.boxed_array_view() {
             for (index, entry) in entries.iter().take(3).enumerate() {
                 plans[index] = plan_for(entry);
             }
